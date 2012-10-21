@@ -1,0 +1,57 @@
+{
+	"manifest_version": 2,
+	"content_security_policy": "script-src 'self'; object-src 'self'"
+	"name": "Video Controller",
+	"version": "2.1.8.2",
+	"description": "Complete your YouTube experience - Control YouTube via one button",
+	"background": "background.html",
+	"browser_action": {
+		"default_icon": "icons/default.png",
+		"default_popup": "popup.html"
+	},
+	"permissions": [
+		"tabs", "http://*.youtube.com/*", "https://*.youtube.com/*"
+	],
+	"icons": {
+		"16": "icons/default.png",
+		"48": "icons/default-48.png",
+		"128": "icons/default-128.png"
+	}
+	"web_accessible_resources": [
+		"icons/disabled/back.png",
+		"icons/disabled/forward.png",
+		"icons/hover/back.png",
+		"icons/hover/forward.png",
+		"icons/hover/pause.png",
+		"icons/hover/play.png",
+		"icons/hover/reload.png",
+		"icons/hover/volume-mute.png",
+		"icons/hover/volume-on.png",
+		"icons/hover/x.png",
+		"icons/pressed/back.png",
+		"icons/pressed/forward.png",
+		"icons/pressed/pause.png",
+		"icons/pressed/play.png",
+		"icons/pressed/reload.png",
+		"icons/pressed/volume-mute.png",
+		"icons/pressed/volume-on.png",
+		"icons/pressed/x.png",
+		"icons/regular/back.png",
+		"icons/regular/forward.png",
+		"icons/regular/pause.png",
+		"icons/regular/play.png",
+		"icons/regular/reload.png",
+		"icons/regular/volume-mute.png",
+		"icons/regular/volume-on.png",
+		"icons/regular/x.png",
+		"icons/volume-bar/volume-bar-gray.png",
+		"icons/volume-bar/volume-bar-handle.png",
+		"icons/volume-bar/volume-bar-purple.png",
+		"popup.html",
+		"popup.css",
+		"popup.js",
+		"background.html",
+		"background.js",
+		"contentScript.js",
+	],
+}

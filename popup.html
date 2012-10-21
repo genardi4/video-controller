@@ -1,0 +1,16 @@
+<script src="popup.js" language="javascript"></script>
+<link href="popup.css" rel="stylesheet" type="text/css"></link>
+<table>
+	<tbody id="players">
+		<tr id="no_player_row">
+			<td id="no_player_col">
+				<div class="no_player player first">
+					<button onclick="chrome.tabs.create({url:'http://youtube.com'});" class="no_player button title">Open a new YouTube tab</button>
+				</div>
+			</td>
+		</tr>
+	</tbody>
+</table>
+<div id="feedback" class="feedback">
+	<a class="feedback" onclick="videoController.bgPage.sendFeedback()">report a bug</a>
+</div>
