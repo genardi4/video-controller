@@ -1,250 +1,233 @@
-var videoController;
-if (typeof videoController == "undefined") {
-	initVC();
-}
-function initVC() {
-	if (document.body != null) {
-		events = new Events();
-		videoController = new VideoController();
-		videoController.bgPage.videoController.popup = this;
-		preloader();
-	}
-	else {
-		setTimeout("initVC()", 200);
-	}
-}
-function preloader() {
-	var hover = "icons/hover/";
-	var pressed = "icons/pressed/";
-	var regular = "icons/regular/";
-	var imgs = ["back.png", 
-	              "forward.png", 
-	              "pause.png", 
-	              "play.png", 
-	              "reload.png", 
-	              "volume-mute.png", 
-	              "volume-on.png", 
-	              "x.png"];
-	var images = ["icons/disabled/back.png", 
-	              "icons/disabled/forward.png",
-	              "icons/volume-bar/volume-bar-gray.png",
-	              "icons/volume-bar/volume-bar-handle.png",
-	              "icons/volume-bar/volume-bar-purple.png"];
-	for (i=0; i<imgs.length; i++) {
-		images.push(hover+imgs[i]);
-		images.push(pressed+imgs[i]);
-		images.push(regular+imgs[i]);
-	}
-	var tempImg = new Image();
-	for (i=0; i<images.length; i++) {
-		tempImg.src=images[i];
-	}
-}
-window.onunload = function() {
-	videoController.bgPage.videoController.popup = null;
-}
-function VideoController() {
-	this.bgPage = chrome.extension.getBackgroundPage();
-	this.addPlayer = function addPlayer(player, first) {
-		var playerNode = new PlayerNode(player, first);
-		document.getElementById("players").appendChild(playerNode);
-	};
-	this.pauseVideo = function pauseVideo(tabId, playerId) {
-		this.bgPage.videoController.pauseVideo(tabId, playerId);
-	};
-	this.playVideo = function playVideo(tabId, playerId) {
-		this.bgPage.videoController.playVideo(tabId, playerId);
-	};
-	this.volume = function volume(tabId, playerId, vol) {
-		this.bgPage.videoController.volume(tabId, playerId, vol);
-	};
-	this.mute = function mute(tabId, playerId, mute) {
-		this.bgPage.videoController.mute(tabId, playerId, mute);
-	};
-	this.forward = function forward(tabId, playerId) {
-		this.bgPage.videoController.forward(tabId, playerId);
-	};
-	this.back = function back(tabId, playerId) {
-		this.bgPage.videoController.back(tabId, playerId);
-	};
-	this.toStart = function toStart(tabId, playerId) {
-		this.bgPage.videoController.toStart(tabId, playerId);
-	};
-	this.toTab = function toTab(tabId, playerId) {
-		this.bgPage.videoController.toTab(tabId);
-	};
-	this.close = function close(tabId) {
-		chrome.tabs.remove(tabId);
-	};
-	this.removeTab = function removeTab(tabId, playerId) {
-		row = document.getElementById(tabId+"_"+playerId+"_row");
-		player = row.firstChild.firstChild;
-		if (player.className.indexOf(" first") != -1)
-			if (row.nextElementSibling != null)
-				row.nextElementSibling.firstChild.firstChild.className+=" first";
-		row.parentNode.removeChild(row);
-		chrome.tabs.remove(parseInt(tabId));
-	};
-	this.updateTab = function updateTab(players, tabId) {
-		for (i=0; i<players.length; i++) {
-			players[i].tabId = tabId;
-			r = document.getElementById(tabId+"_"+players[i].id+"_"+"row");
-			r.parentNode.replaceChild(new PlayerNode(players[i], false), r);
-		}
-	};
-	var tabs = this.bgPage.videoController.tabs;
-	if (tabs.index.length == 0) {
-		//TODO no videos...
-		return;
-	}
-	for (i=0; i<tabs.index.length; i++) {
-		var players = tabs[tabs.index[i]].players;
-		if (players.index.length != 0) {
-			document.getElementById("no_player_row").className = "hidden";
-		}
-		for (j=0; j<players.index.length; j++) {
-			var player = players[players.index[j]];
-			player.tabId = tabs.index[i];
-			this.addPlayer(player, j+i==0);
-		}
-	}
-}
-function getPlayerId(element) {
-	var temp = element.parentElement.parentElement.parentElement.id;
-	return temp.substring(temp.indexOf("_")+1, temp.lastIndexOf("_"));
-}
-function getTabId(element) {
-	var temp = element.parentElement.parentElement.parentElement.id;
-	return temp.substring(0,temp.indexOf("_"));
-}
-function Events() {
-	this.pausePlay = function pausePlay(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		if (this.className.indexOf(" play") != -1) {
-			this.className = this.className.substring(0, this.className.indexOf(" play"))+" pause";
-			videoController.playVideo(tabId, playerId);
-		}
-		else if (this.className.indexOf(" pause") != -1) {
-			this.className = this.className.substring(0, this.className.indexOf(" pause"))+" play";
-			videoController.pauseVideo(tabId, playerId);
-		}
-	};
-	this.volume = function volume(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		this.style.backgroundPositionX = this.value*1.3+4+"px, 0px";
-		videoController.volume(tabId, playerId, this.value);
-	};
-	this.mute = function mute(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		if (this.className.indexOf(" mute_on") != -1) {
-			this.className = this.className.substring(0, this.className.indexOf(" mute_on"));
-			videoController.mute(tabId, playerId, false);
-		}
-		else {
-			this.className += " mute_on";
-			videoController.mute(tabId, playerId, true);
-		}
-	};
-	this.forward = function forward(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		videoController.forward(tabId, playerId);
-	};
-	this.back = function back(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		videoController.back(tabId, playerId);
-	};
-	this.toStart = function toStart(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		videoController.toStart(tabId, playerId);
-	};
-	this.toTab = function toTab(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		videoController.toTab(tabId, playerId);
-	};
-	this.close = function close(event) {
-		tabId = getTabId(this);
-		playerId = getPlayerId(this);
-		videoController.removeTab(tabId, playerId);
-		videoController.close(tabId, playerId);
-	};
-}
-function PlayerNode(info, first) {
-	var row = document.createElement("tr");
-	row.setAttribute("id", info.tabId+"_"+info.id+"_row");
-	
-	var col = document.createElement("td");
-	col.setAttribute("id", info.tabId+"_"+info.id+"_col");
-	row.appendChild(col);
-	
-	var player = new Element({type:"div", className:"player", playerId:info.id});
-	if (first) player.className+=" first";
-	col.appendChild(player);
-	
-	var upper  = new Element({type:"div", className:"upper", playerId:info.id});
-	player.appendChild(upper);
-	
-	var lower  = new Element({type:"div", className:"lower", playerId:info.id});
-	player.appendChild(lower);
-	
-	var close  = new Element({type:"button", clickEvent:events.close, className:"close button", playerId:info.id});
-	upper.appendChild(close);
-		
-	var title  = new Element({type:"button", clickEvent:events.toTab, className:"button title", text:info.title, playerId:info.id});
-	upper.appendChild(title);
-	
-	var pausePlay = new Element({type:"button", clickEvent:events.pausePlay, className:"button lower_button", playerId:info.id});
-	if (info.playing) pausePlay.className+=" play";
-	else pausePlay.className+=" pause";
-	lower.appendChild(pausePlay);
-	
-	var toStart  = new Element({type:"button", clickEvent:events.toStart, className:"toStart button lower_button", playerId:info.id});
-	lower.appendChild(toStart);
-	
-	var mute  = new Element({type:"button", clickEvent:events.mute, className:"mute button lower_button", playerId:info.id});
-	if (info.mute) mute.className+=" mute_on";
-	lower.appendChild(mute);
-	
-	var volume  = new Element({type:"volume", event:events.volume, className:"volume lower_button", playerId:info.id, value:info.volume});
-	lower.appendChild(volume);
-	
-	var back  = new Element({type:"button", clickEvent:events.back, className:"back button lower_button", playerId:info.id});
-	lower.appendChild(back);
-	
-	var forward  = new Element({type:"button", clickEvent:events.forward, className:"forward button lower_button", playerId:info.id});
-	lower.appendChild(forward);
-	
-	return row;
-}
-function Element(info) {
-	if (typeof info.type != "string") {
-		return null;
-	}
-	var element = document.createElement(info.type);
-	if (info.type == "volume") {
-		element = document.createElement("input");
-		element.setAttribute("type", "range");
-		if (typeof info.event != "undefined") 
-			element.addEventListener("change", info.event)
-		if (typeof info.value != "undefined") {
-			element.setAttribute("value", info.value);
-			element.style.backgroundPositionX = info.value*1.3+4+"px, 0px";
-		}
-	}
-	if (typeof info.className == "string") {
-		element.className = info.className;
-	}
-	if (typeof info.text == "string") {
-		element.innerHTML = info.text;
-	}
-	if (typeof info.clickEvent == "function") {
-		element.addEventListener("click", info.clickEvent);
-	}
-	return element;
+// Declare the pop-up object.
+var vcPopup = new VCPopup();
+
+// The pop-up constructor.
+function VCPopup() {
+
+  var clientsInfo = [];
+  var autoLoad = true;
+
+  /**
+   * The initialization function of the vcPopup object.<br>
+   * Called when the pop-up window is loaded
+   */
+  function load() {
+    if (!autoLoad)
+      setTimeout(load, 1000);
+    else {
+      // Ask the storage for the clients list.
+      chrome.storage.local.get("clients", function(items) {
+        // This local clients array will hold the stringified version of the
+        // storage clients array because the tab ids are kept as numbers inside
+        // the array but as strings inside the storage object.
+        var clients = [];
+        for (i in items.clients)
+          clients[i] = "" + items.clients[i];
+        // Ask the storage for the information of each of the clients.
+        var temp = clients.slice(0);
+        temp[temp.length]="clients";
+        chrome.storage.local.get(temp, function(items) {
+          // Create a player per each client.
+          for (i in clients) {
+            try {
+              chrome.tabs.get(parseInt(clients[i]), function(tab) {
+                clientsInfo[clients[i]] = items[clients[i]];
+                createPlayer(clients[i]);
+              });
+            }
+            catch (e) {
+              delete items.clients[i];
+              delete items[clients[i]];
+              chrome.storage.local.set(items);
+            }
+          }
+        });
+      });
+
+      document.getElementById("youtube-button").onclick = function() {
+        chrome.tabs.create({
+          url : 'http://youtube.com'
+        });
+      };
+
+      document.getElementById("feedback").onclick = function() {
+        chrome.tabs.create({
+          url : "http://code.google.com/p/video-controller/issues/entry"
+        });
+      };
+
+      setTimeout(load, 500);
+    }
+
+  }
+
+  /**
+   * This method creates a new player and replaces the old one if exists.
+   * 
+   * @param info:
+   *            The information of the player.
+   * @param tabId:
+   *            The id of the player's tab.
+   */
+  function createPlayer(tabId) {
+    var info = clientsInfo[tabId];
+    var row = document.createElement("tr");
+    row.setAttribute("id", tabId);
+
+    var col = document.createElement("td");
+    row.appendChild(col);
+
+    var player = document.createElement("div");
+    player.setAttribute("class", "player");
+    col.appendChild(player);
+
+    var upper = document.createElement("div");
+    upper.setAttribute("class", "upper");
+    player.appendChild(upper);
+
+    var lower = document.createElement("div");
+    lower.setAttribute("class", "lower");
+    player.appendChild(lower);
+
+    var close = document.createElement("button");
+    close.setAttribute("class", "close");
+    close.onclick = vcPopup.close;
+    upper.appendChild(close);
+
+    var title = document.createElement("button");
+    title.setAttribute("class", "title");
+    title.onclick = vcPopup.move;
+    title.innerHTML = info.name;
+    upper.appendChild(title);
+
+    var playPause = document.createElement("button");
+    playPause.setAttribute("class", "play-pause");
+    playPause.onclick = vcPopup.playPause;
+    if (info.status != 1)
+      playPause.className += " play";
+    else
+      playPause.className += " pause";
+    lower.appendChild(playPause);
+
+    var toStart = document.createElement("button");
+    toStart.setAttribute("class", "toStart");
+    toStart.onclick = vcPopup.toStart;
+    lower.appendChild(toStart);
+
+    var mute = document.createElement("button");
+    mute.setAttribute("class", "mute");
+    mute.onclick = vcPopup.mute;
+    if (info.isMuted) mute.className += " on";
+    lower.appendChild(mute);
+
+    var volume = element = document.createElement("input");
+    volume.setAttribute("class", "volume");
+    volume.setAttribute("type", "range");
+    volume.onchange = vcPopup.volume;
+    volume.onmousedown = vcPopup.pauseAutoLoad;
+    volume.onmouseup = vcPopup.continueAutoLoad;
+    volume.setAttribute("value", info.volume);
+    volume.style.backgroundPositionX = info.volume * 1.3 + 4 + "px, 0px";
+    lower.appendChild(volume);
+
+    var back = document.createElement("button");
+    back.setAttribute("class", "back");
+    back.onclick = vcPopup.back;
+    if (info.playlist == null || info.playlist[0] == null) {
+      back.disabled = true;
+    }
+    lower.appendChild(back);
+
+    var forward = document.createElement("button");
+    forward.setAttribute("class", "forward");
+    forward.onclick = vcPopup.forward;
+    if (info.playlist == null || info.playlist[1] == null) {
+      forward.disabled = true;
+    }
+    lower.appendChild(forward);
+
+    document.getElementById("no_player_row").className = "hidden";
+    if (document.getElementById(tabId) != null)
+      document.getElementById("players").replaceChild(row,
+        document.getElementById(tabId));
+    else
+      document.getElementById("players").insertBefore(row,
+        document.getElementById("no_player_row"));
+  }
+
+  function getTabId(player) {
+    return parseInt(player.parentNode.parentNode.parentNode.parentNode.id);
+  }
+  this.close = function close() {
+    var tabId = getTabId(this);
+    chrome.tabs.remove(tabId);
+  };
+  this.move = function move() {
+    var tabId = getTabId(this);
+    chrome.tabs.update(tabId, {
+      active : true
+    });
+  };
+  this.playPause = function playPause() {
+    var tabId = getTabId(this);
+    chrome.tabs.sendMessage(tabId, {
+      action : "playPause"
+    });
+  };
+  this.toStart = function toStart() {
+    var tabId = getTabId(this);
+    chrome.tabs.sendMessage(tabId, {
+      action : "toStart"
+    });
+  };
+  this.mute = function mute() {
+    var tabId = getTabId(this);
+    chrome.tabs.sendMessage(tabId, {
+      action : "mute"
+    });
+  };
+  this.volume = function volume() {
+    var tabId = getTabId(this);
+    chrome.tabs.sendMessage(tabId, {
+      action : "volume",
+      value : this.valueAsNumber
+    });
+    this.style.backgroundPositionX = this.value * 1.3 + 4 + "px, 0px";
+  };
+  this.back = function back() {
+    var tabId = getTabId(this);
+    var playlist = clientsInfo[tabId].playlist;
+    var videoId = clientsInfo[tabId].url.substr(clientsInfo[tabId].url
+      .indexOf("v=")
+      + "v=".length);
+    if (videoId.indexOf("&") > -1)
+      videoId = videoId.substr(0, videoId.indexOf("&"));
+    chrome.tabs.update(tabId, {
+      url : clientsInfo[tabId].url.replace(videoId, playlist[0]),
+    });
+    window.close();
+  };
+  this.forward = function forward() {
+    var tabId = getTabId(this);
+    var playlist = clientsInfo[tabId].playlist;
+    var videoId = clientsInfo[tabId].url.substr(clientsInfo[tabId].url
+      .indexOf("v=")
+      + "v=".length);
+    if (videoId.indexOf("&") > -1)
+      videoId = videoId.substr(0, videoId.indexOf("&"));
+    chrome.tabs.update(tabId, {
+      url : clientsInfo[tabId].url.replace(videoId, playlist[1]),
+    });
+    window.close();
+  };
+
+  this.pauseAutoLoad = function pauseAutoLoad() {
+    autoLoad = false;
+  };
+
+  this.continueAutoLoad = function continueAutoLoad() {
+    autoLoad = true;
+  };
+
+  window.onload = load;
 }

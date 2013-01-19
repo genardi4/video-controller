@@ -1,182 +1,171 @@
-function start() {
-	if (document.getElementsByTagName("video").length+document.getElementsByTagName("embed").length == 0) {
-		setTimeout("start();", 1000);
-		return;
-	}
-	videoController = new VideoController("start");
-}
-function reloaded() {
-	videoController = new VideoController("reloaded");
-}
-function urlChanged() {
-	if (document.getElementsByTagName("video").length+document.getElementsByTagName("embed").length == 0) {
-		setTimeout("start();", 1000);
-		return;
-	}
-	videoController = new VideoController("urlChanged");
-}
-var videoController;
-function VideoController(reason) {
-	this.reason = reason;
-	switch(reason) {
-	case "start":
-		break;
-	case "reloaded":
-		break;
-	case "urlChanged":
-		break;
-	}
-	this.videos = [];
-	this.tabId = null;
-	var ytPattern = new RegExp("http://[A-Za-z0-9]*\.youtube\.com/[A-Za-z0-9]*");
-	var ytPattern2 = new RegExp("http://[A-Za-z0-9]*\.ytimg\.com/[A-Za-z0-9]*");
-	var fObjects = document.getElementsByTagName("embed");
-	for (i=0; i<fObjects.length; i++) {
-		if (ytPattern.test(fObjects[i].getVideoUrl()) || ytPattern2.test(fObjects[i].getVideoUrl())) {
-			this.videos[this.videos.length] = new Video(fObjects[i], false, true);
-		}
-	}
-	var hObjects = document.getElementsByTagName("video");
-	for (i=0; i<hObjects.length; i++) {
-		if (ytPattern.test(hObjects[i].src) || ytPattern2.test(hObjects[i].src)) {
-			this.videos[this.videos.length] = new Video(hObjects[i], true, (this.videos.length+hObjects.length==1));
-		}
-	}
-	this.port = chrome.extension.connect({name: "videoController"});
-	this.port.postMessage({videos:this.videos, type:this.reason});
-	this.port.onMessage.addListener(function(response) {
-		switch(response.type) {
-		case "pause":
-			videoController.pause(response.playerId);
-			break;
-		case "play":
-			videoController.play(response.playerId);
-			break;
-		case "volume":
-			videoController.volume(response.playerId, response.volume);
-			break;
-		case "mute":
-			videoController.mute(response.playerId, response.mute);
-			break;
-		case "forward":
-			videoController.forward();
-			break;
-		case "back":
-			videoController.back();
-			break;
-		case "toStart":
-			videoController.toStart(response.playerId);
-			break;
-		case "update":
-			for (i=0; i<videoController.videos.length; i++) {
-				videoController.videos[i].update();
-			}
-			videoController.port.postMessage({videos:videoController.videos, type:"update"});
-			break;
-		}
-	});
-	this.urlChanged = function urlChanged() {
-		alert("url");
-	};
-	this.reloaded = function reloaded() {
-		alert("reload");
-	};
-	this.unload = function unload() {
-		this.port.postMessage({type:"disconnect"});
-	};
-	this.pause = function pause(playerId) {
-		try {
-			document.getElementById(playerId).pauseVideo()
-		}
-		catch(err) {
-			document.getElementById(playerId).pause();
-		}
-	};
-	this.play = function play(playerId) {
-		try {
-			document.getElementById(playerId).playVideo()
-		}
-		catch(err) {
-			document.getElementById(playerId).play()
-		}
-	};
-	this.volume = function volume(playerId, volume) {
-		try {
-			document.getElementById(playerId).setVolume(volume);
-		}
-		catch(err) {
-			document.getElementById(playerId).volume = volume/100
-		}
-	};
-	this.mute = function mute(playerId, mute) {
-		try {
-			if (mute)
-				document.getElementById(playerId).mute();
-			else
-				document.getElementById(playerId).unMute();
-		}
-		catch(err) {
-			document.getElementById(playerId).muted = mute;
-		}
-	};
-	this.forward = function forward() {
-		document.getElementById("playlist-bar-next-button").click();
-	};
-	this.back = function back() {
-		document.getElementById("playlist-bar-prev-button").click();
-	};
-	this.toStart = function toStart(playerId) {
-		try {
-			document.getElementById(playerId).seekTo(0, false);
-		}
-		catch(err) {
-			document.getElementById(playerId).seek = 0;
-		}
-	};
-}
+// Declare the client object.
+var vcClient = new VCClient();
 
-function Video(player, html5, singleVideo) {
-	this.id = player.id;
-	this.html5 = html5;
-	if (html5) {
-		this.seek = player.length;
-		this.playing = !player.paused;
-		this.volume = player.volume*100;
-		this.mute = player.muted;
-		this.url = player.src;
-	}
-	else {
-		this.seek = player.getCurrentTime();
-		this.playing = player.getPlayerState()!=1;
-		this.volume = player.getVolume();
-		this.mute = player.isMuted();
-		this.url = player.getVideoUrl();
-	}
-	this.title = getTitle(this.url, typeof singleVideo == "boolean"?singleVideo:false);
-	this.inList = document.getElementById('playlist-bar').className.indexOf("hid") == -1;
-	this.update = function update() {
-		if (this.html5) {
-			this.seek = player.length;
-			this.playing = !player.paused;
-			this.volume = player.volume*100;
-			this.mute = player.muted;
-			this.url = player.src;
-		}
-		else {
-			this.seek = player.getCurrentTime();
-			this.playing = player.getPlayerState()!=1;
-			this.volume = player.getVolume();
-			this.mute = player.isMuted();
-			this.url = player.getVideoUrl();
-		}
-	};
-}
+// The constructor for the client object.
+function VCClient() {
+  // A reference to the object.
+  var self = this;
 
-function getTitle(url, singleVideo) {
-	try {
-		return document.getElementById("eow-title").innerText;
-	}
-	catch(err) {
-		return document.title.replace("YouTube - ", "");
-	}
+  // The YouTube player object.
+  this.player = null;
+
+  var playlist = null;
+
+  // The id of this tab.
+  var tabId = -1;
+
+  // Ask the background page for this tab tabId.
+  chrome.extension.sendMessage({
+    type : "tabId"
+  }, function(response) {
+    tabId = response.tabId;
+  });
+
+  // Add a listener to the extension messaging system.
+  chrome.extension.onMessage.addListener(messageListener);
+
+  /**
+   * Initializes the YouTube player.<br>
+   * Sometimes the JavaScript loads before the DOM has the time to finish
+   * loading and the YouTube player can't be found. To solve this, this function
+   * will try 10 times to find it each try is separated by 1000ms.
+   * 
+   * @param tries:
+   *            The current number of tries.
+   */
+  function initPlayer(tries) {
+
+    // If tries was not set, set it to 0.
+    if (tries == undefined) tries = 0;
+
+    // Try to fetch the YouTube player object.
+    self.player = document.getElementById("movie_player");
+
+    // Check if the player element was found & it started playing.
+    try {
+
+      if (self.player.getPlayerState() > -1) {
+
+        // Favorites are not supported.
+        if (playlist == null && window.location.href.indexOf("list=") != -1
+          && window.location.href.indexOf("list=F") == -1) {
+          var listStart = window.location.href.indexOf("list=")
+            + "list=".length;
+          var playlistName = window.location.href.substr(listStart);
+          if (playlistName.indexOf("&") > -1)
+            playlistName = playlistName.substr(0, playlistName.indexOf("&"));
+          var xhr = new XMLHttpRequest();
+          xhr.onreadystatechange = function() {
+            if (xhr.readyState == 4) {
+              var json = JSON.parse(xhr.responseText);
+              if (self.player.getPlaylistIndex() > 0) {
+                playlist = [json.data.items[0].video.id, null];
+                if (json.data.items.length > 2)
+                  playlist[1] = json.data.items[2].video.id;
+              }
+              else if (json.data != null)
+                playlist = [null, json.data.items[1].video.id];
+            }
+          };
+          xhr.open("GET", "http://gdata.youtube.com/feeds/api/playlists/"
+            + playlistName
+            + "?v=2&alt=jsonc&max-results=3&start-index="
+            + (self.player.getPlaylistIndex() > 1 ? self.player
+              .getPlaylistIndex() : 1), true);
+          xhr.send();
+          throw null;
+        }
+        else {
+          // start updating the extension local storage.
+          updateStorage();
+        }
+      }
+      else
+        throw null;
+    }
+    catch (e) {
+      if (tries < 10) window.setTimeout(function() {
+        initPlayer(tries + 1);
+      }, 1000);
+    }
+  }
+
+  /**
+   * Updates the local storage to include this player information. This method
+   * is recalled every 1000ms to keep the player updated.
+   */
+  function updateStorage() {
+    // Ask the storage for the clients list and the information for this tab.
+    chrome.storage.local.get(["clients", "" + tabId], function(items) {
+      // Add the id for this tab to the clients list.
+      if (items.clients == undefined) items.clients = [];
+      if (items.clients.indexOf("" + tabId) == -1)
+        items.clients[items.clients.length] = "" + tabId;
+
+      // Add the information object for this tab's player.
+      if (items[tabId] == undefined) items[tabId] = {};
+
+      items[tabId] = {
+        // The name of this video (its the content of the meta-tag title).
+        name : document.getElementsByName("title")[0].content,
+        // Ask the player for the volume, status & check if it is muted.
+        volume : self.player.getVolume(),
+        isMuted : self.player.isMuted(),
+        status : self.player.getPlayerState(),
+        playlist : playlist,
+        url : window.location.href,
+      };
+
+      // Update the storage accordingly and recall this method in 1000ms.
+      chrome.storage.local.set(items, function() {
+        // window.setTimeout(updateStorage, 1000);
+      });
+    });
+
+  }
+
+  /**
+   * Listens to messages from the pop-up object.
+   * 
+   * @param request
+   * @param sender
+   * @param sendResponse
+   */
+  function messageListener(request, sender, sendResponse) {
+    switch (request.action) {
+    case "playPause":
+
+      if (self.player.getPlayerState() != 2)
+        self.player.pauseVideo();
+      else if (self.player.getPlayerState() == 0) {
+        self.player.seekTo(0);
+        self.player.playVideo();
+      }
+      else
+        self.player.playVideo();
+      updateStorage();
+      break;
+    case "toStart":
+      self.player.seekTo(0);
+      if (self.player.getPlayerState() != 1) self.player.playVideo();
+      updateStorage();
+      break;
+    case "mute":
+      if (self.player.isMuted())
+        self.player.unMute();
+      else
+        self.player.mute();
+      updateStorage();
+      break;
+    case "volume":
+      self.player.setVolume(request.value);
+      updateStorage();
+      break;
+    }
+  }
+
+  // Initialize the YouTube player when the window finishes loading.
+  window.addEventListener('load', function() {
+    initPlayer();
+  });
 }
