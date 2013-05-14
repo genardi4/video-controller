@@ -1,8 +1,14 @@
 {
   "name": "Video Controller",
-  "version": "3.0.5",
+  "version": "3.0.8",
   "manifest_version": 2,
   "description": "Complete your YouTube experience - Control YouTube via one button",
+  "icons": {
+      "16": "icon.png",
+      "48": "webstore-logo (48).png",
+      "64": "webstore-logo (64).png",
+      "128": "webstore-logo (128).png"
+  },
   "browser_action": {
     "default_icon": "icon.ico",
     "default_popup": "popup.html"
